@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.MyPersonalTimeTracker" parent="android:Theme.Material.NoActionBar" />
+</resources>

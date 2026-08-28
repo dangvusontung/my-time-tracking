@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Office Time Tracker</string>
+    <string name="tile_label">Office</string>
+</resources>
