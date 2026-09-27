@@ -14,15 +14,16 @@ import androidx.work.WorkerParameters
 import com.example.mypersonaltimetracker.App
 import com.example.mypersonaltimetracker.MainActivity
 import com.example.mypersonaltimetracker.R
-import com.example.mypersonaltimetracker.domain.ShortfallWarning
+import com.example.mypersonaltimetracker.domain.WeekProgressCalculator
+import com.example.mypersonaltimetracker.ui.common.formatMinutes
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 
 /**
- * US-24: chạy mỗi ngày một lần; nếu tuần đang thiếu giờ và số giờ cần bù mỗi ngày
- * vượt quá 8h thì thông báo (tối đa một lần mỗi ngày, ghi nhớ bằng SharedPreferences).
+ * Chạy Thứ Sáu 16:30: nếu tuần đã đủ mục tiêu giờ thì thông báo mừng
+ * (tối đa một lần mỗi tuần, ghi nhớ bằng SharedPreferences).
  */
-class ShortfallWarningWorker(
+class WeekCompleteWorker(
     appContext: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
@@ -30,31 +31,26 @@ class ShortfallWarningWorker(
     override suspend fun doWork(): Result {
         val settings = App.get(applicationContext).container.settings.settings.first()
         if (settings.remindersEnabled) {
-            maybeWarn()
-            ReminderScheduler.scheduleNextShortfall(applicationContext)
+            maybeNotify()
+            ReminderScheduler.scheduleNextWeekComplete(applicationContext)
         }
         return Result.success()
     }
 
-    private suspend fun maybeWarn() {
+    private suspend fun maybeNotify() {
         val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val today = LocalDate.now()
-        if (prefs.getString(KEY_LAST_WARNED, null) == today.toString()) return
+        val weekStart = WeekProgressCalculator.weekStartOf(today)
+        if (prefs.getString(KEY_LAST_NOTIFIED, null) == weekStart.toString()) return
 
         val progress = ReminderScheduler.currentWeekProgress(applicationContext, today)
+        if (progress.weekTotalMinutes < progress.targetMinutes) return
 
-        if (!ShortfallWarning.shouldWarn(today, progress)) return
-
-        val hours = progress.remainingMinutes / 60
-        val minutes = progress.remainingMinutes % 60
-        val missing = if (minutes > 0) "${hours}h${minutes.toString().padStart(2, '0')}" else "${hours}h"
-        val days = if (progress.daysLeft % 1.0 == 0.0) {
-            progress.daysLeft.toInt().toString()
-        } else {
-            progress.daysLeft.toString()
-        }
-        notify("Tuần này còn thiếu $missing — còn $days ngày để bù")
-        prefs.edit().putString(KEY_LAST_WARNED, today.toString()).apply()
+        notify(
+            "Đã đủ ${formatMinutes(progress.targetMinutes)} tuần này" +
+                " (tổng ${formatMinutes(progress.weekTotalMinutes)}) — nghỉ ngơi thôi!",
+        )
+        prefs.edit().putString(KEY_LAST_NOTIFIED, weekStart.toString()).apply()
     }
 
     private fun notify(text: String) {
@@ -72,7 +68,7 @@ class ShortfallWarningWorker(
         )
         val notification = NotificationCompat.Builder(applicationContext, ReminderScheduler.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Cảnh báo thiếu giờ tuần")
+            .setContentTitle("Đủ giờ tuần này!")
             .setContentText(text)
             .setContentIntent(intent)
             .setAutoCancel(true)
@@ -81,8 +77,8 @@ class ShortfallWarningWorker(
     }
 
     companion object {
-        private const val PREFS = "shortfall_warning"
-        private const val KEY_LAST_WARNED = "last_warned_date"
-        private const val NOTIF_ID = 3
+        private const val PREFS = "week_complete"
+        private const val KEY_LAST_NOTIFIED = "last_notified_week"
+        private const val NOTIF_ID = 4
     }
 }

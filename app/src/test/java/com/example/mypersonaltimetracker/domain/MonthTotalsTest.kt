@@ -9,7 +9,7 @@ import java.time.YearMonth
 class MonthTotalsTest {
 
     private fun summary(total: Int) =
-        DaySummary(officeMinutes = total, lunchCreditMinutes = 0, exceptionCreditMinutes = 0)
+        DaySummary(officeMinutes = total, lunchAdjustmentMinutes = 0, exceptionCreditMinutes = 0)
 
     @Test
     fun `groups and sums per month`() {
@@ -23,6 +23,7 @@ class MonthTotalsTest {
         assertEquals(YearMonth.of(2026, 8), months[0].yearMonth)
         assertEquals(1020, months[0].totalMinutes)
         assertEquals(2, months[0].daysWithData)
+        assertEquals(510, months[0].avgPerDayMinutes)
         assertEquals(YearMonth.of(2026, 7), months[1].yearMonth)
         assertEquals(300, months[1].totalMinutes)
         assertEquals(1, months[1].daysWithData)
@@ -41,13 +42,13 @@ class MonthTotalsTest {
     }
 
     @Test
-    fun `totals include lunch and exception credits`() {
+    fun `totals include lunch adjustment and exception credits`() {
         val summaries = mapOf(
-            LocalDate.of(2026, 8, 3) to DaySummary(officeMinutes = 420, lunchCreditMinutes = 60, exceptionCreditMinutes = 0),
-            LocalDate.of(2026, 8, 4) to DaySummary(officeMinutes = 0, lunchCreditMinutes = 0, exceptionCreditMinutes = 480),
+            LocalDate.of(2026, 8, 3) to DaySummary(officeMinutes = 420, lunchAdjustmentMinutes = -60, exceptionCreditMinutes = 0),
+            LocalDate.of(2026, 8, 4) to DaySummary(officeMinutes = 0, lunchAdjustmentMinutes = 0, exceptionCreditMinutes = 480),
         )
         val months = MonthTotalsCalculator.aggregate(summaries, maxMonths = 12)
-        assertEquals(960, months[0].totalMinutes)
+        assertEquals(840, months[0].totalMinutes)
         assertEquals(2, months[0].daysWithData)
     }
 

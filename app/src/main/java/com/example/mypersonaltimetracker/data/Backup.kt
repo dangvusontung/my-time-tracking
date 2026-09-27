@@ -77,6 +77,8 @@ object Backup {
             put("lunchWindowStartMin", settings.lunchWindowStartMin)
             put("lunchWindowEndMin", settings.lunchWindowEndMin)
             put("lunchMaxCreditMinutes", settings.lunchMaxCreditMinutes)
+            put("workdayCountStartMin", settings.workdayCountStartMin)
+            put("workdayCountEndMin", settings.workdayCountEndMin)
             put("morningReminderMin", settings.morningReminderMin)
             put("eveningReminderMin", settings.eveningReminderMin)
             put("remindersEnabled", settings.remindersEnabled)
@@ -132,6 +134,8 @@ object Backup {
                 lunchWindowStartMin = o.optInt("lunchWindowStartMin", 690),
                 lunchWindowEndMin = o.optInt("lunchWindowEndMin", 840),
                 lunchMaxCreditMinutes = o.optInt("lunchMaxCreditMinutes", 60),
+                workdayCountStartMin = o.optInt("workdayCountStartMin", 450),
+                workdayCountEndMin = o.optInt("workdayCountEndMin", 990),
                 morningReminderMin = o.optInt("morningReminderMin", 510),
                 eveningReminderMin = o.optInt("eveningReminderMin", 1050),
                 remindersEnabled = o.optBoolean("remindersEnabled", true),

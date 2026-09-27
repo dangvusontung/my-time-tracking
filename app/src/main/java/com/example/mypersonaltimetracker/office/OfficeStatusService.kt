@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import com.example.mypersonaltimetracker.App
 import com.example.mypersonaltimetracker.MainActivity
 import com.example.mypersonaltimetracker.R
+import com.example.mypersonaltimetracker.reminder.ReminderScheduler
 import com.example.mypersonaltimetracker.ui.common.formatTime
 import com.example.mypersonaltimetracker.widget.updateAllWidgets
 import kotlinx.coroutines.CoroutineScope
@@ -132,8 +133,10 @@ class OfficeStatusService : Service() {
         private const val NOTIF_ID = 100
 
         /** Starts the service if a session is currently open; when the last open session
-         *  closes the service stops itself, so callers never need to stop it explicitly. */
+         *  closes the service stops itself, so callers never need to stop it explicitly.
+         *  Also (re)arms the daily-target milestone notification to follow the session state. */
         suspend fun sync(context: Context) {
+            ReminderScheduler.armDailyTarget(context)
             val open = App.get(context).container.repository.observeOpenSessions().first()
             if (open.isNotEmpty()) {
                 ContextCompat.startForegroundService(context, Intent(context, OfficeStatusService::class.java))

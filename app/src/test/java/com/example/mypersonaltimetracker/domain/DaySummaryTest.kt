@@ -24,7 +24,7 @@ class DaySummaryTest {
         now: Instant = at("18:00"),
     ) = DaySummaryCalculator.compute(
         sessions, exception, day, now,
-        lunchStartMin = 690, lunchEndMin = 840, lunchMaxCreditMin = 60, zone = zone,
+        lunchStartMin = 690, lunchEndMin = 840, lunchMaxDeductMin = 60, zone = zone,
     )
 
     @Test
@@ -32,9 +32,17 @@ class DaySummaryTest {
         val sessions = listOf(span(1, "08:00", "12:00"), span(2, "13:00", "17:00"))
         val s = summary(sessions)
         assertEquals(480, s.officeMinutes)
-        assertEquals(60, s.lunchCreditMinutes) // gap 12:00-13:00 starts in window
+        assertEquals(0, s.lunchAdjustmentMinutes) // gap 12:00-13:00 is the actual lunch
         assertEquals(0, s.exceptionCreditMinutes)
-        assertEquals(540, s.totalMinutes)
+        assertEquals(480, s.totalMinutes)
+    }
+
+    @Test
+    fun `continuous session has lunch deducted`() {
+        val s = summary(listOf(span(1, "08:00", "17:00")))
+        assertEquals(540, s.officeMinutes)
+        assertEquals(-60, s.lunchAdjustmentMinutes)
+        assertEquals(480, s.totalMinutes)
     }
 
     @Test
@@ -47,11 +55,12 @@ class DaySummaryTest {
 
     @Test
     fun `exception credit is added to total`() {
-        val sessions = listOf(span(1, "08:00", "12:00"))
+        val sessions = listOf(span(1, "08:00", "11:00"))
         val s = summary(sessions, exception = DayType.HALF_DAY_LEAVE)
-        assertEquals(240, s.officeMinutes)
+        assertEquals(180, s.officeMinutes)
+        assertEquals(0, s.lunchAdjustmentMinutes) // session ends before the lunch window
         assertEquals(240, s.exceptionCreditMinutes)
-        assertEquals(480, s.totalMinutes)
+        assertEquals(420, s.totalMinutes)
     }
 
     @Test
@@ -73,5 +82,29 @@ class DaySummaryTest {
         // Tuesday sees nothing of it
         val tuesdaySummary = summary(listOf(SessionSpan(1, at("22:00", monday), at("02:00"))))
         assertEquals(0, tuesdaySummary.officeMinutes)
+    }
+
+    @Test
+    fun `time outside the counting window is not counted`() {
+        // 07:00 -> 17:30 with window 7:30-16:30: only 7:30-16:30 counts = 540.
+        val s = DaySummaryCalculator.compute(
+            listOf(span(1, "07:00", "17:30")), null, day, at("18:00"),
+            lunchStartMin = 690, lunchEndMin = 840, lunchMaxDeductMin = 60, zone = zone,
+            countFromMin = 450, countUntilMin = 990,
+        )
+        assertEquals(540, s.officeMinutes)
+        assertEquals(-60, s.lunchAdjustmentMinutes) // continuous through the lunch window
+        assertEquals(480, s.totalMinutes)
+    }
+
+    @Test
+    fun `session fully before the window counts nothing`() {
+        val s = DaySummaryCalculator.compute(
+            listOf(span(1, "05:00", "07:00")), null, day, at("18:00"),
+            lunchStartMin = 690, lunchEndMin = 840, lunchMaxDeductMin = 60, zone = zone,
+            countFromMin = 450, countUntilMin = 990,
+        )
+        assertEquals(0, s.officeMinutes)
+        assertEquals(0, s.totalMinutes)
     }
 }

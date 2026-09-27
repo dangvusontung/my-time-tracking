@@ -8,10 +8,13 @@ import com.example.mypersonaltimetracker.data.SessionEntity
 import com.example.mypersonaltimetracker.domain.DaySummary
 import com.example.mypersonaltimetracker.domain.DaySummaryCalculator
 import com.example.mypersonaltimetracker.domain.DayType
+import com.example.mypersonaltimetracker.domain.EarliestLeaveCalculator
 import com.example.mypersonaltimetracker.domain.SessionSpan
 import com.example.mypersonaltimetracker.domain.SessionValidationError
 import com.example.mypersonaltimetracker.domain.SessionValidator
+import com.example.mypersonaltimetracker.domain.WeekProgressCalculator
 import com.example.mypersonaltimetracker.office.OfficeStatusService
+import com.example.mypersonaltimetracker.reminder.ReminderScheduler
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -52,6 +55,10 @@ data class DayUiState(
     val runningSession: SessionUi? = null,
     /** Open sessions whose inAt local date is before [date] — only populated for today. */
     val staleSessions: List<SessionUi> = emptyList(),
+    /** Mục tiêu giờ làm của ngày (mục tiêu tuần / số ngày làm việc), null nếu không xác định. */
+    val dailyTargetMinutes: Int? = null,
+    /** Giờ về sớm nhất (đủ "luật rừng" 8h30) — chỉ cho hôm nay, null nếu không có phiên đang chạy. */
+    val earliestLeaveAt: Instant? = null,
 ) {
     val isRunning: Boolean get() = runningSession != null
     val overTenHours: Boolean get() = summary.totalMinutes > 600
@@ -66,13 +73,26 @@ class DayViewModel(
     private val settingsRepo = app.container.settings
     private val zone: ZoneId = ZoneId.systemDefault()
 
+    /** Settings + mục tiêu ngày (từ mục tiêu tuần tuỳ chỉnh nếu có). */
+    private val configFlow = combine(
+        settingsRepo.settings,
+        repo.observeWeekTargets(),
+    ) { settings, targets ->
+        val weekStart = WeekProgressCalculator.weekStartOf(LocalDate.now(zone))
+        val weekly = targets.firstOrNull { it.weekStart == weekStart.toString() }?.targetMinutes
+            ?: settings.defaultWeeklyTargetMinutes
+        val daily = if (settings.workdays.isEmpty()) null else weekly / settings.workdays.size
+        settings to daily
+    }
+
     val uiState: StateFlow<DayUiState> = combine(
         repo.observeSessions(),
         repo.observeExceptions(),
         repo.observeDayNotes(),
-        settingsRepo.settings,
+        configFlow,
         nowTicker(),
-    ) { sessions, exceptions, notes, settings, now ->
+    ) { sessions, exceptions, notes, config, now ->
+        val (settings, dailyTarget) = config
         val today = LocalDate.now(zone)
         val exception = exceptions.firstOrNull { it.date == date.toString() }
         val note = notes.firstOrNull { it.date == date.toString() }?.note
@@ -88,13 +108,28 @@ class DayViewModel(
             .sortedBy { it.inAt }
             .map(::toUi)
 
+        val spans = sessions.map {
+            SessionSpan(it.id, Instant.ofEpochMilli(it.inAt), it.outAt?.let(Instant::ofEpochMilli))
+        }
         val summary = DaySummaryCalculator.compute(
-            sessions.map { SessionSpan(it.id, Instant.ofEpochMilli(it.inAt), it.outAt?.let(Instant::ofEpochMilli)) },
+            spans,
             exception?.type,
             date, now,
             settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
             zone,
+            settings.workdayCountStartMin, settings.workdayCountEndMin,
         )
+
+        val earliestLeave = if (date == today) {
+            EarliestLeaveCalculator.compute(
+                spans, exception?.type, date, now,
+                settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
+                zone,
+                settings.workdayCountStartMin, settings.workdayCountEndMin,
+            )
+        } else {
+            null
+        }
 
         val stale = if (date == today) {
             sessions.filter { it.outAt == null && Instant.ofEpochMilli(it.inAt).atZone(zone).toLocalDate() < today }
@@ -114,6 +149,8 @@ class DayViewModel(
             runningSession = daySessions.firstOrNull { it.isRunning }
                 ?: sessions.firstOrNull { it.outAt == null }?.let(::toUi),
             staleSessions = stale,
+            dailyTargetMinutes = dailyTarget,
+            earliestLeaveAt = earliestLeave,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DayUiState(date = date, isToday = true))
 
@@ -129,6 +166,7 @@ class DayViewModel(
             repo.deleteSession(
                 SessionEntity(session.id, session.inAt.toEpochMilli(), session.outAt?.toEpochMilli(), session.isEstimated),
             )
+            ReminderScheduler.armDailyTarget(app)
         }
     }
 
@@ -146,12 +184,13 @@ class DayViewModel(
             val others = allSessions.map {
                 SessionSpan(it.id, Instant.ofEpochMilli(it.inAt), it.outAt?.let(Instant::ofEpochMilli))
             }
-            val errors = SessionValidator.validate(candidate, others, Instant.now())
+            val errors = SessionValidator.validate(candidate, others, Instant.now(), zone)
             if (errors.isNotEmpty()) {
                 onError(errors)
                 return@launch
             }
             repo.upsertSession(SessionEntity(id, inAt.toEpochMilli(), outAt?.toEpochMilli(), isEstimated))
+            ReminderScheduler.armDailyTarget(app)
             onSuccess()
         }
     }

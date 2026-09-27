@@ -17,7 +17,7 @@ class WeekProgressTest {
     )
 
     private fun summary(total: Int, office: Int = total, lunch: Int = 0, exception: Int = 0) =
-        DaySummary(officeMinutes = office, lunchCreditMinutes = lunch, exceptionCreditMinutes = exception)
+        DaySummary(officeMinutes = office, lunchAdjustmentMinutes = lunch, exceptionCreditMinutes = exception)
             .also { require(it.totalMinutes == total) }
 
     private fun progress(
@@ -41,14 +41,14 @@ class WeekProgressTest {
     @Test
     fun `totals split into office lunch exception`() {
         val summaries = mapOf(
-            monday to summary(total = 540, office = 480, lunch = 60),
+            monday to summary(total = 420, office = 480, lunch = -60),
             monday.plusDays(1) to summary(total = 480, office = 0, exception = 480),
         )
         val p = progress(today = monday.plusDays(2), summaries = summaries)
         assertEquals(480, p.officeMinutes)
-        assertEquals(60, p.lunchCreditMinutes)
+        assertEquals(-60, p.lunchAdjustmentMinutes)
         assertEquals(480, p.exceptionCreditMinutes)
-        assertEquals(1020, p.weekTotalMinutes)
+        assertEquals(900, p.weekTotalMinutes)
     }
 
     @Test

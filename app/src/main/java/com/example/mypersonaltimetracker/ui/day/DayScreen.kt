@@ -8,17 +8,31 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BeachAccess
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Functions
+import androidx.compose.material.icons.filled.LunchDining
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,14 +43,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.mypersonaltimetracker.domain.JUNGLE_LAW_DAILY_MINUTES
+import com.example.mypersonaltimetracker.ui.common.InfoChip
+import com.example.mypersonaltimetracker.ui.common.SectionHeader
+import com.example.mypersonaltimetracker.ui.common.SummaryStatRow
 import com.example.mypersonaltimetracker.ui.common.formatDateLongVi
 import com.example.mypersonaltimetracker.ui.common.formatMinutes
 import com.example.mypersonaltimetracker.ui.common.formatTime
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 private fun formatElapsed(duration: Duration): String {
@@ -68,12 +87,22 @@ fun DayContent(
         if (state.staleSessions.isNotEmpty()) {
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(
-                            "Có phiên chưa đóng từ ngày trước!",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                            Text(
+                                "Có phiên chưa đóng từ ngày trước!",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
                         state.staleSessions.forEach { s ->
                             val d = s.inAt.atZone(zone).toLocalDate()
                             Row(
@@ -83,6 +112,7 @@ fun DayContent(
                                 Text(
                                     "${formatDateLongVi(d)} · vào ${formatTime(s.inAt, zone)}",
                                     modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                 )
                                 TextButton(onClick = { editErrors = emptyList(); editing = s }) {
@@ -96,55 +126,47 @@ fun DayContent(
             }
         }
 
-        if (state.isToday) {
+        // Hero: live status + the big check-in/out action (today only).
+        if (state.isToday || state.isRunning) {
             item {
-                Button(
-                    onClick = { viewModel.toggle() },
-                    modifier = Modifier.fillMaxWidth().height(72.dp),
-                ) {
-                    Text(
-                        if (state.isRunning) "Ra office" else "Vào office",
-                        style = MaterialTheme.typography.headlineSmall,
-                    )
-                }
-            }
-        }
-
-        state.runningSession?.let { running ->
-            item {
-                Card {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Đang trong office", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            formatElapsed(Duration.between(running.inAt, state.now)),
-                            style = MaterialTheme.typography.displaySmall,
-                        )
-                        Text("Vào lúc ${formatTime(running.inAt, zone)}")
-                    }
-                }
+                HeroCard(state = state, zone = zone, onToggle = viewModel::toggle)
             }
         }
 
         item {
             Card {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        if (state.isToday) "Hôm nay" else formatDateLongVi(state.date),
+                        if (state.isToday) "Tổng hôm nay" else formatDateLongVi(state.date),
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    TotalLine("Giờ ở office", formatMinutes(state.summary.officeMinutes))
-                    TotalLine("Cộng nghỉ trưa", "+${formatMinutes(state.summary.lunchCreditMinutes)}")
+                    SummaryStatRow(Icons.Default.Schedule, "Giờ ở office", formatMinutes(state.summary.officeMinutes))
+                    SummaryStatRow(Icons.Default.LunchDining, "Trừ nghỉ trưa", formatMinutes(state.summary.lunchAdjustmentMinutes))
                     state.exception?.let {
-                        TotalLine("${it.type.labelVi()}", "+${formatMinutes(state.summary.exceptionCreditMinutes)}")
+                        SummaryStatRow(Icons.Default.BeachAccess, it.type.labelVi(), "+${formatMinutes(state.summary.exceptionCreditMinutes)}")
                     }
                     HorizontalDivider()
-                    TotalLine("Tổng", formatMinutes(state.summary.totalMinutes), bold = true)
+                    SummaryStatRow(
+                        Icons.Default.Functions, "Tổng", formatMinutes(state.summary.totalMinutes),
+                        emphasized = true,
+                    )
                     if (state.overTenHours) {
-                        Text(
-                            "Tổng vượt quá 10h — kiểm tra lại cờ nghỉ phép?",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                            Text(
+                                "Tổng vượt quá 10h — kiểm tra lại cờ nghỉ phép?",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
             }
@@ -153,14 +175,23 @@ fun DayContent(
         item {
             Card {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        state.exception?.let { "Loại ngày: ${it.type.labelVi()}" + (it.note?.let { n -> " · $n" } ?: "") }
-                            ?: "Chưa đặt loại ngày",
-                        modifier = Modifier.weight(1f),
+                    Icon(
+                        Icons.Default.BeachAccess,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
                     )
+                    Column(Modifier.weight(1f)) {
+                        Text("Loại ngày (nghỉ, lễ, WFH)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            state.exception?.let { it.type.labelVi() + (it.note?.let { n -> " · $n" } ?: "") }
+                                ?: "Ngày làm việc bình thường",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                     TextButton(onClick = { showException = true }) {
                         Text(if (state.exception == null) "Đặt" else "Đổi")
                     }
@@ -171,13 +202,22 @@ fun DayContent(
         item {
             Card {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        state.note?.let { "Ghi chú: $it" } ?: "Chưa có ghi chú",
-                        modifier = Modifier.weight(1f),
+                    Icon(
+                        Icons.Default.EditNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
                     )
+                    Column(Modifier.weight(1f)) {
+                        Text("Ghi chú", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            state.note ?: "Chưa có",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                     TextButton(onClick = { showNote = true }) {
                         Text(if (state.note == null) "Thêm" else "Sửa")
                     }
@@ -190,30 +230,47 @@ fun DayContent(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Các phiên", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = { editErrors = emptyList(); showAdd = true }) { Text("Thêm phiên") }
+                SectionHeader("Các phiên", modifier = Modifier.weight(1f))
+                TextButton(onClick = { editErrors = emptyList(); showAdd = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Thêm phiên")
+                }
             }
         }
 
         items(state.sessions, key = { it.id }) { s ->
             Card {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            "${formatTime(s.inAt, zone)} → ${s.outAt?.let { formatTime(it, zone) } ?: "đang mở"}" +
-                                " · ${formatMinutes(s.durationMinutes)}",
+                            "${formatTime(s.inAt, zone)} → ${s.outAt?.let { formatTime(it, zone) } ?: "đang mở"}",
+                            style = MaterialTheme.typography.titleSmall,
                         )
-                        if (s.isEstimated) {
-                            Text("ước tính", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                formatMinutes(s.durationMinutes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (s.isEstimated) {
+                                InfoChip("ước tính")
+                            }
                         }
                     }
                     IconButton(onClick = { editErrors = emptyList(); editing = s }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Sửa")
+                        Icon(Icons.Default.Edit, contentDescription = "Sửa", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = { viewModel.deleteSession(s) }) {
+                    IconButton(
+                        onClick = { viewModel.deleteSession(s) },
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) {
                         Icon(Icons.Default.Delete, contentDescription = "Xoá")
                     }
                 }
@@ -227,8 +284,8 @@ fun DayContent(
         SessionEditDialog(
             title = "Thêm phiên",
             initialDate = state.date,
-            initialInMin = 8 * 60,
-            initialOutMin = 17 * 60,
+            initialInMin = state.now.atZone(zone).toLocalTime().let { it.hour * 60 + it.minute },
+            initialOutMin = null, // mặc định phiên đang mở — đặt giờ ra sau
             initialEstimated = false,
             errors = editErrors,
             onDismiss = { showAdd = false },
@@ -281,16 +338,134 @@ fun DayContent(
 }
 
 @Composable
-private fun TotalLine(label: String, value: String, bold: Boolean = false) {
-    Row(Modifier.fillMaxWidth()) {
-        Text(
-            label,
-            modifier = Modifier.weight(1f),
-            style = if (bold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-        )
-        Text(
-            value,
-            style = if (bold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-        )
+private fun HeroCard(state: DayUiState, zone: ZoneId, onToggle: () -> Unit) {
+    val running = state.runningSession
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (running != null) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (running != null) {
+                Text(
+                    "Đang trong office",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Text(
+                    formatElapsed(Duration.between(running.inAt, state.now)),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Text(
+                    "Vào lúc ${formatTime(running.inAt, zone)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            } else {
+                Text(
+                    "Hôm nay đã làm",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    formatMinutes(state.summary.totalMinutes),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            // Tiến độ so với mục tiêu ngày (8h30 mặc định).
+            val target = state.dailyTargetMinutes
+            if (state.isToday && target != null && target > 0) {
+                val ratio = state.summary.totalMinutes.toFloat() / target
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LinearProgressIndicator(
+                        progress = { ratio.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(8.dp),
+                        color = if (ratio >= 1f) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        strokeCap = StrokeCap.Round,
+                    )
+                    Text(
+                        "Mục tiêu ngày: ${formatMinutes(state.summary.totalMinutes)} / ${formatMinutes(target)} (${(ratio * 100).toInt()}%)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (running != null) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            // Chỉ số phụ: "luật rừng" 8h30/ngày.
+            if (state.isToday) {
+                val total = state.summary.totalMinutes
+                val met = total >= JUNGLE_LAW_DAILY_MINUTES
+                val jungleRatio = total.toFloat() / JUNGLE_LAW_DAILY_MINUTES
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LinearProgressIndicator(
+                        progress = { jungleRatio.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        strokeCap = StrokeCap.Round,
+                    )
+                    Text(
+                        "Luật rừng 8h30: ${formatMinutes(total)} / 8h30 (${(jungleRatio * 100).toInt()}%)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when {
+                            met -> MaterialTheme.colorScheme.tertiary
+                            running != null -> MaterialTheme.colorScheme.onPrimaryContainer
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    val leaveText = when {
+                        met -> "Đủ luật rừng — về được rồi"
+                        state.earliestLeaveAt != null -> "Về sớm nhất: ${formatTime(state.earliestLeaveAt!!, zone)}"
+                        else -> null
+                    }
+                    if (leaveText != null) {
+                        Text(
+                            leaveText,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = when {
+                                met -> MaterialTheme.colorScheme.tertiary
+                                running != null -> MaterialTheme.colorScheme.onPrimaryContainer
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+            if (state.isToday) {
+                Button(
+                    onClick = onToggle,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = if (running != null) {
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        )
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    },
+                ) {
+                    Icon(
+                        if (running != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
+                        contentDescription = null,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (running != null) "Ra office" else "Vào office",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+            }
+        }
     }
 }

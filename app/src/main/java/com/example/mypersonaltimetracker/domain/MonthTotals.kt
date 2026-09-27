@@ -8,10 +8,12 @@ data class MonthTotal(
     val totalMinutes: Int,
     /** Số ngày có dữ liệu (có phiên hoặc loại ngày được cộng giờ) trong tháng. */
     val daysWithData: Int,
+    /** Trung bình tổng giờ mỗi ngày có dữ liệu. */
+    val avgPerDayMinutes: Int,
 )
 
 /**
- * US-26: nhóm tổng giờ theo tháng từ các DaySummary đã tính (office + nghỉ trưa
+ * US-26: nhóm tổng giờ theo tháng từ các DaySummary đã tính (office − nghỉ trưa
  * + cộng loại ngày — cùng định nghĩa với tổng tuần).
  */
 object MonthTotalsCalculator {
@@ -26,10 +28,12 @@ object MonthTotalsCalculator {
             .entries
             .groupBy({ YearMonth.from(it.key) }, { it.value })
             .map { (yearMonth, summaries) ->
+                val total = summaries.sumOf { it.totalMinutes }
                 MonthTotal(
                     yearMonth = yearMonth,
-                    totalMinutes = summaries.sumOf { it.totalMinutes },
+                    totalMinutes = total,
                     daysWithData = summaries.size,
+                    avgPerDayMinutes = total / summaries.size,
                 )
             }
             .sortedByDescending { it.yearMonth }

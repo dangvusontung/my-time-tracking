@@ -18,10 +18,13 @@ val DEFAULT_WORKDAYS: Set<DayOfWeek> = setOf(
 )
 
 data class AppSettings(
-    val defaultWeeklyTargetMinutes: Int = 2400,
+    val defaultWeeklyTargetMinutes: Int = 2400, // 40h chính thức = 8h/ngày × 5 ngày
     val lunchWindowStartMin: Int = 690,  // 11:30
     val lunchWindowEndMin: Int = 840,    // 14:00
     val lunchMaxCreditMinutes: Int = 60,
+    /** Khung giờ công ty công nhận: trước/sau khung này không tính giờ (7:30–16:30). */
+    val workdayCountStartMin: Int = 450,  // 07:30
+    val workdayCountEndMin: Int = 990,    // 16:30
     val morningReminderMin: Int = 510,   // 08:30
     val eveningReminderMin: Int = 1050,  // 17:30
     val remindersEnabled: Boolean = true,
@@ -37,6 +40,8 @@ class SettingsRepository(private val context: Context) {
         val LUNCH_START = intPreferencesKey("lunchWindowStartMin")
         val LUNCH_END = intPreferencesKey("lunchWindowEndMin")
         val LUNCH_MAX_CREDIT = intPreferencesKey("lunchMaxCreditMinutes")
+        val WORKDAY_COUNT_START = intPreferencesKey("workdayCountStartMin")
+        val WORKDAY_COUNT_END = intPreferencesKey("workdayCountEndMin")
         val MORNING_REMINDER = intPreferencesKey("morningReminderMin")
         val EVENING_REMINDER = intPreferencesKey("eveningReminderMin")
         val REMINDERS_ENABLED = booleanPreferencesKey("remindersEnabled")
@@ -50,6 +55,8 @@ class SettingsRepository(private val context: Context) {
             lunchWindowStartMin = p[Keys.LUNCH_START] ?: 690,
             lunchWindowEndMin = p[Keys.LUNCH_END] ?: 840,
             lunchMaxCreditMinutes = p[Keys.LUNCH_MAX_CREDIT] ?: 60,
+            workdayCountStartMin = p[Keys.WORKDAY_COUNT_START] ?: 450,
+            workdayCountEndMin = p[Keys.WORKDAY_COUNT_END] ?: 990,
             morningReminderMin = p[Keys.MORNING_REMINDER] ?: 510,
             eveningReminderMin = p[Keys.EVENING_REMINDER] ?: 1050,
             remindersEnabled = p[Keys.REMINDERS_ENABLED] ?: true,
@@ -76,6 +83,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLunchMaxCreditMinutes(value: Int) =
         context.dataStore.edit { it[Keys.LUNCH_MAX_CREDIT] = value }
 
+    suspend fun setWorkdayCountWindow(startMin: Int, endMin: Int) =
+        context.dataStore.edit {
+            it[Keys.WORKDAY_COUNT_START] = startMin
+            it[Keys.WORKDAY_COUNT_END] = endMin
+        }
+
     suspend fun setReminderTimes(morningMin: Int, eveningMin: Int) =
         context.dataStore.edit {
             it[Keys.MORNING_REMINDER] = morningMin
@@ -100,6 +113,8 @@ class SettingsRepository(private val context: Context) {
             it[Keys.LUNCH_START] = settings.lunchWindowStartMin
             it[Keys.LUNCH_END] = settings.lunchWindowEndMin
             it[Keys.LUNCH_MAX_CREDIT] = settings.lunchMaxCreditMinutes
+            it[Keys.WORKDAY_COUNT_START] = settings.workdayCountStartMin
+            it[Keys.WORKDAY_COUNT_END] = settings.workdayCountEndMin
             it[Keys.MORNING_REMINDER] = settings.morningReminderMin
             it[Keys.EVENING_REMINDER] = settings.eveningReminderMin
             it[Keys.REMINDERS_ENABLED] = settings.remindersEnabled

@@ -44,6 +44,7 @@ class MonthViewModel(app: App) : ViewModel() {
                 spans, exceptionByDate[d], d, now,
                 settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
                 zone,
+                settings.workdayCountStartMin, settings.workdayCountEndMin,
             )
         }
         MonthUiState(months = MonthTotalsCalculator.aggregate(summaries, MAX_MONTHS))

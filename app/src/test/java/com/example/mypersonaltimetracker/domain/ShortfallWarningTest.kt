@@ -14,7 +14,7 @@ class ShortfallWarningTest {
         WeekProgress(
             weekStart = WeekProgressCalculator.weekStartOf(thursday),
             officeMinutes = 0,
-            lunchCreditMinutes = 0,
+            lunchAdjustmentMinutes = 0,
             exceptionCreditMinutes = 0,
             weekTotalMinutes = 0,
             targetMinutes = remainingMinutes,

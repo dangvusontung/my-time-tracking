@@ -31,6 +31,7 @@ fun SessionValidationError.messageVi(): String = when (this) {
     SessionValidationError.OUT_NOT_AFTER_IN -> "Giờ ra phải sau giờ vào"
     SessionValidationError.OVERLAP -> "Trùng với một phiên khác"
     SessionValidationError.DUPLICATE_RUNNING -> "Đã có một phiên đang mở"
+    SessionValidationError.OPEN_SESSION_IN_PAST -> "Ngày trong quá khứ phải có giờ ra"
 }
 
 /**
@@ -51,7 +52,6 @@ fun SessionEditDialog(
     var date by remember { mutableStateOf(initialDate) }
     var inMin by remember { mutableStateOf(initialInMin) }
     var outMin by remember { mutableStateOf(initialOutMin) }
-    var stillOpen by remember { mutableStateOf(initialOutMin == null) }
     var estimated by remember { mutableStateOf(initialEstimated) }
     var pickingDate by remember { mutableStateOf(false) }
     var pickingIn by remember { mutableStateOf(false) }
@@ -72,15 +72,10 @@ fun SessionEditDialog(
                     }
                     OutlinedButton(
                         onClick = { pickingOut = true },
-                        enabled = !stillOpen,
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(outMin?.let { "Ra: ${minuteOfDayToTime(it)}" } ?: "Ra: —")
                     }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = stillOpen, onCheckedChange = { stillOpen = it })
-                    Text("Chưa ra office (phiên đang mở)")
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = estimated, onCheckedChange = { estimated = it })
@@ -95,7 +90,7 @@ fun SessionEditDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(date, inMin, if (stillOpen) null else outMin, estimated) }) {
+            TextButton(onClick = { onSave(date, inMin, outMin, estimated) }) {
                 Text("Lưu")
             }
         },

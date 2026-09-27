@@ -5,10 +5,14 @@ import java.time.LocalDate
 import kotlin.math.ceil
 import kotlin.math.max
 
+/** "Luật rừng": mốc 8h30/ngày — chỉ số phụ (không chính thức), không ảnh hưởng mục tiêu tuần. */
+const val JUNGLE_LAW_DAILY_MINUTES = 8 * 60 + 30
+
 data class WeekProgress(
     val weekStart: LocalDate,
     val officeMinutes: Int,
-    val lunchCreditMinutes: Int,
+    /** Lunch adjustment summed over the week — NEGATIVE (lunch is deducted). */
+    val lunchAdjustmentMinutes: Int,
     val exceptionCreditMinutes: Int,
     val weekTotalMinutes: Int,
     val targetMinutes: Int,
@@ -49,7 +53,7 @@ object WeekProgressCalculator {
             val d = weekStart.plusDays(i.toLong())
             val s = daySummaries[d] ?: continue
             office += s.officeMinutes
-            lunch += s.lunchCreditMinutes
+            lunch += s.lunchAdjustmentMinutes
             exception += s.exceptionCreditMinutes
         }
         val weekTotal = office + lunch + exception
@@ -76,7 +80,7 @@ object WeekProgressCalculator {
         return WeekProgress(
             weekStart = weekStart,
             officeMinutes = office,
-            lunchCreditMinutes = lunch,
+            lunchAdjustmentMinutes = lunch,
             exceptionCreditMinutes = exception,
             weekTotalMinutes = weekTotal,
             targetMinutes = target,

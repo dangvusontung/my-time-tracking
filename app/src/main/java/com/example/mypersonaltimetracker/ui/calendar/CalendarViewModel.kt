@@ -1,4 +1,4 @@
-package com.example.mypersonaltimetracker.ui.history
+package com.example.mypersonaltimetracker.ui.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,22 +15,23 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-data class HistoryRow(
+data class CalendarDay(
     val date: LocalDate,
     val totalMinutes: Int,
     val exception: DayType?,
     val hasNote: Boolean,
 )
 
-data class HistoryUiState(
-    val rows: List<HistoryRow> = emptyList(),
+data class CalendarUiState(
+    val days: Map<LocalDate, CalendarDay> = emptyMap(),
 )
 
-class HistoryViewModel(app: App) : ViewModel() {
+/** Per-day totals across ALL history, for the month calendar grid. */
+class CalendarViewModel(app: App) : ViewModel() {
 
     private val zone: ZoneId = ZoneId.systemDefault()
 
-    val uiState: StateFlow<HistoryUiState> = combine(
+    val uiState: StateFlow<CalendarUiState> = combine(
         app.container.repository.observeSessions(),
         app.container.repository.observeExceptions(),
         app.container.repository.observeDayNotes(),
@@ -42,21 +43,19 @@ class HistoryViewModel(app: App) : ViewModel() {
         }
         val exceptionByDate = exceptions.associateBy({ LocalDate.parse(it.date) }, { it.type })
         val noteDates = notes.map { LocalDate.parse(it.date) }.toSet()
-        val sessionDates = sessions.map { Instant.ofEpochMilli(it.inAt).atZone(zone).toLocalDate() }.toSet()
-        val today = LocalDate.now(zone)
-        val cutoff = today.minusDays(60)
+        val dates = sessions.map { Instant.ofEpochMilli(it.inAt).atZone(zone).toLocalDate() }.toSet() +
+            exceptionByDate.keys + noteDates
 
-        val dates = (sessionDates + exceptionByDate.keys).filter { it >= cutoff }.sortedDescending()
-        HistoryUiState(
-            rows = dates.map { d ->
+        CalendarUiState(
+            days = dates.associateWith { d ->
                 val summary = DaySummaryCalculator.compute(
                     spans, exceptionByDate[d], d, now,
                     settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
                     zone,
                     settings.workdayCountStartMin, settings.workdayCountEndMin,
                 )
-                HistoryRow(d, summary.totalMinutes, exceptionByDate[d], hasNote = d in noteDates)
+                CalendarDay(d, summary.totalMinutes, exceptionByDate[d], hasNote = d in noteDates)
             },
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HistoryUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CalendarUiState())
 }

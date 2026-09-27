@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.mypersonaltimetracker.data.DayExceptionEntity
 import com.example.mypersonaltimetracker.domain.DayType
+import com.example.mypersonaltimetracker.ui.common.formatMinutes
 
 fun DayType.labelVi(): String = when (this) {
     DayType.ANNUAL_LEAVE -> "Nghỉ phép"
@@ -41,7 +43,7 @@ fun ExceptionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Loại ngày") },
+        title = { Text("Loại ngày (nghỉ, lễ, WFH)") },
         text = {
             Column {
                 DayType.entries.forEach { type ->
@@ -50,7 +52,14 @@ fun ExceptionDialog(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         RadioButton(selected = selected == type, onClick = { selected = type })
-                        Text(type.labelVi())
+                        Column {
+                            Text(type.labelVi())
+                            Text(
+                                "Cộng ${formatMinutes(type.creditMinutes)} vào tổng giờ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))

@@ -69,6 +69,7 @@ class WeekHistoryViewModel(private val app: App) : ViewModel() {
                         spans, exceptionByDate[d], d, now,
                         settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
                         zone,
+                        settings.workdayCountStartMin, settings.workdayCountEndMin,
                     )
                 }
                 val custom = targets.firstOrNull { it.weekStart == weekStart.toString() }?.targetMinutes

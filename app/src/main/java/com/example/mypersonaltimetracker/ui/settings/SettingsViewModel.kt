@@ -1,6 +1,7 @@
 package com.example.mypersonaltimetracker.ui.settings
 
 import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mypersonaltimetracker.App
@@ -18,6 +19,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -59,6 +62,13 @@ class SettingsViewModel(private val app: App) : ViewModel() {
 
     fun setLunchMaxCreditMinutes(value: Int) {
         viewModelScope.launch { settingsRepo.setLunchMaxCreditMinutes(value) }
+    }
+
+    fun setWorkdayCountWindow(startMin: Int, endMin: Int) {
+        viewModelScope.launch {
+            settingsRepo.setWorkdayCountWindow(startMin, endMin)
+            reschedule()
+        }
     }
 
     fun setDefaultWeeklyTargetMinutes(value: Int) {
@@ -103,6 +113,28 @@ class SettingsViewModel(private val app: App) : ViewModel() {
                 onResult(true)
             } catch (e: Exception) {
                 onResult(false)
+            }
+        }
+    }
+
+    /** Ghi bản sao lưu vào cache rồi trả về content Uri để chia sẻ (máy khác -> Khôi phục). */
+    fun shareBackup(onReady: (Uri?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val repo = app.container.repository
+                val json = Backup.build(
+                    sessions = repo.observeSessions().first(),
+                    exceptions = repo.observeExceptions().first(),
+                    weekTargets = repo.observeWeekTargets().first(),
+                    dayNotes = repo.observeDayNotes().first(),
+                    settings = settingsRepo.settings.first(),
+                )
+                val file = File(app.cacheDir, "time_tracker_backup.json")
+                file.writeText(json)
+                val uri = FileProvider.getUriForFile(app, "${app.packageName}.fileprovider", file)
+                withContext(Dispatchers.Main) { onReady(uri) }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onReady(null) }
             }
         }
     }
