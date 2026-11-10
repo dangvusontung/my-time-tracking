@@ -19,18 +19,19 @@ class TimeRepository(private val db: AppDatabase) {
     fun observeWeekTargets(): Flow<List<WeekTargetEntity>> = weekTargets.observeAll()
     fun observeDayNotes(): Flow<List<DayNoteEntity>> = dayNotes.observeAll()
 
-    suspend fun clockIn(now: Instant): Long =
-        sessions.insert(SessionEntity(inAt = now.toEpochMilli()))
+    suspend fun clockIn(now: Instant): Long = db.withTransaction {
+        sessions.getOpen()?.id ?: sessions.insert(SessionEntity(inAt = now.toEpochMilli()))
+    }
 
     /** Closes the current open session, if any. */
-    suspend fun clockOut(now: Instant) {
+    suspend fun clockOut(now: Instant) = db.withTransaction {
         sessions.getOpen()?.let { sessions.update(it.copy(outAt = now.toEpochMilli())) }
     }
 
-    /** Performs "Vào office" / "Ra office" depending on current state. */
-    suspend fun toggle(now: Instant): Boolean {
+    /** Performs "Vào làm" / "Ra ngoài" depending on current state. */
+    suspend fun toggle(now: Instant): Boolean = db.withTransaction {
         val open = sessions.getOpen()
-        return if (open == null) {
+        if (open == null) {
             sessions.insert(SessionEntity(inAt = now.toEpochMilli()))
             true
         } else {

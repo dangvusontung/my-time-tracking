@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Instant
 
-/** Quick Settings tile: active while a session is open, tap toggles vào/ra office. */
+/** Quick Settings tile: active while a session is open, tap toggles vào/ra ngoài. */
 class OfficeTileService : TileService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

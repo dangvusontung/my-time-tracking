@@ -73,27 +73,44 @@ class LunchAdjustmentTest {
     }
 
     @Test
-    fun `gap before the window is not lunch`() {
-        // out 11:00, back 12:00 -> deduction from coverage of 12:00-14:00
+    fun `gap crossing window start credits only the overlap`() {
         val sessions = listOf(span(1, "08:00", "11:00"), span(2, "12:00", "17:00"))
-        assertEquals(-60, adjustment(sessions))
+        assertEquals(-30, adjustment(sessions))
     }
 
     @Test
-    fun `only the first qualifying gap counts`() {
-        // gaps 12:00-12:10 (10 min) and 13:00-14:00; coverage = 30+50 = 80 -> standard 60
+    fun `later full lunch takes priority over an earlier short outing`() {
         val sessions = listOf(
             span(1, "08:00", "12:00"),
             span(2, "12:10", "13:00"),
             span(3, "14:00", "17:00"),
         )
-        assertEquals(-50, adjustment(sessions))
+        assertEquals(0, adjustment(sessions))
     }
 
     @Test
-    fun `running session counts toward coverage but not gap detection`() {
+    fun `running afternoon session still identifies the completed lunch gap`() {
         val sessions = listOf(span(1, "08:00", "12:00"), SessionSpan(2, at("13:00"), null))
-        assertEquals(-60, adjustment(sessions, now = at("17:00")))
+        assertEquals(0, adjustment(sessions, now = at("17:00")))
+    }
+
+    @Test
+    fun `gap crossing 14h credits only time inside lunch window`() {
+        assertEquals(-45, adjustment(listOf(span(1, "08:00", "13:45"), span(2, "14:45", "18:00"))))
+    }
+
+    @Test
+    fun `short gaps inside one lunch hour count toward its sixty minutes`() {
+        assertEquals(-30, adjustment(listOf(
+            span(1, "08:00", "12:00"), span(2, "12:15", "12:30"), span(3, "12:45", "18:00"),
+        )))
+    }
+
+    @Test
+    fun `distant outings cannot be combined into a single lunch hour`() {
+        assertEquals(-40, adjustment(listOf(
+            span(1, "08:00", "11:30"), span(2, "11:50", "13:40"), span(3, "14:00", "18:00"),
+        )))
     }
 
     @Test

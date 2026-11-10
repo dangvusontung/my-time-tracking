@@ -49,6 +49,9 @@ android {
 }
 
 dependencies {
+    implementation(project(":shared"))
+    implementation(libs.play.services.wearable)
+    implementation(libs.coroutines.play.services)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     implementation(libs.androidx.core.ktx)

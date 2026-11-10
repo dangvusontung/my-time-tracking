@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import com.example.mypersonaltimetracker.domain.LunchBreakStatus
 
 data class WeekUiState(
     val progress: WeekProgress? = null,
@@ -29,6 +30,10 @@ data class WeekUiState(
     val jungleLawDays: Int = 0,
     /** Trung bình tổng giờ mỗi ngày có dữ liệu trong tuần (0 nếu chưa có ngày nào). */
     val avgPerDayMinutes: Int = 0,
+    val timelines: List<List<com.example.mypersonaltimetracker.domain.OfficeSegment>> = List(7) { emptyList() },
+    val lunchOverrunDays: Int = 0,
+    val lunchOverrunMinutes: Int = 0,
+    val fridayLeaveAt: Instant? = null,
 )
 
 class WeekViewModel(app: App) : ViewModel() {
@@ -56,18 +61,25 @@ class WeekViewModel(app: App) : ViewModel() {
                 spans, exceptionByDate[d], d, now,
                 settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
                 zone,
-                settings.workdayCountStartMin, settings.workdayCountEndMin,
             )
         }
         val custom = targets.firstOrNull { it.weekStart == weekStart.toString() }?.targetMinutes
         val dayTotals = (0..6).map { i -> summaries[weekStart.plusDays(i.toLong())]?.totalMinutes ?: 0 }
         val daysWithData = dayTotals.count { it > 0 }
+        val lunches = (0..6).map { i -> LunchBreakStatus.compute(spans, weekStart.plusDays(i.toLong()), now, zone,
+            settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes) }
         WeekUiState(
             progress = WeekProgressCalculator.compute(
                 today, weekStart, summaries, exceptionByDate, custom, settings.defaultWeeklyTargetMinutes,
                 settings.workdays,
             ),
             dayTotals = dayTotals,
+            fridayLeaveAt = com.example.mypersonaltimetracker.domain.FridayLeaveCalculator.compute(
+                spans, exceptionByDate[today], today, now, dayTotals.take(4).sum(),
+                settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes, zone),
+            timelines = (0..6).map { i -> com.example.mypersonaltimetracker.domain.officeTimeline(
+                sessions.map { com.example.mypersonaltimetracker.companion.WatchSession(it.inAt, it.outAt) },
+                weekStart.plusDays(i.toLong()), now, zone, settings.lunchWindowStartMin, settings.lunchWindowEndMin) },
             weekStart = weekStart,
             perDayTargetMinutes = if (settings.workdays.isEmpty()) {
                 null
@@ -76,6 +88,8 @@ class WeekViewModel(app: App) : ViewModel() {
             },
             jungleLawDays = dayTotals.count { it >= JUNGLE_LAW_DAILY_MINUTES },
             avgPerDayMinutes = if (daysWithData > 0) dayTotals.sum() / daysWithData else 0,
+            lunchOverrunDays = lunches.count { it.extraMinutes > 0 },
+            lunchOverrunMinutes = lunches.sumOf { it.extraMinutes },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WeekUiState())
 

@@ -61,7 +61,7 @@ object ReminderScheduler {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Nhắc vào/ra office", NotificationManager.IMPORTANCE_DEFAULT),
+                NotificationChannel(CHANNEL_ID, "Nhắc vào làm / ra ngoài", NotificationManager.IMPORTANCE_DEFAULT),
             )
         }
     }
@@ -134,7 +134,6 @@ object ReminderScheduler {
                 spans, exceptionByDate[d], d, now,
                 settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
                 zone,
-                settings.workdayCountStartMin, settings.workdayCountEndMin,
             )
         }
         val custom = targets.firstOrNull { it.weekStart == weekStart.toString() }?.targetMinutes
@@ -166,7 +165,7 @@ object ReminderScheduler {
         return Duration.between(now.atZone(zone).toInstant(), next.atZone(zone).toInstant())
     }
 
-    /** Tổng giờ hôm nay (phiên đang mở tính đến hiện tại) và trạng thái đang trong office. */
+    /** Tổng giờ hôm nay (phiên đang mở tính đến hiện tại) và trạng thái đang trong văn phòng. */
     suspend fun todayTotal(context: Context): Pair<Int, Boolean> {
         val app = App.get(context)
         val repo = app.container.repository
@@ -182,7 +181,6 @@ object ReminderScheduler {
             today, now,
             settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
             zone,
-            settings.workdayCountStartMin, settings.workdayCountEndMin,
         )
         return summary.totalMinutes to sessions.any { it.outAt == null }
     }
@@ -190,7 +188,7 @@ object ReminderScheduler {
     /**
      * (Re)arms the one-time worker that fires exactly when today's total reaches the next
      * milestone (mục tiêu ngày, rồi luật rừng 8h30). No-op khi không có phiên đang mở,
-     * vì tổng giờ chỉ tăng khi đang trong office.
+     * vì tổng giờ chỉ tăng khi đang trong văn phòng.
      */
     suspend fun armDailyTarget(context: Context) {
         val wm = WorkManager.getInstance(context)
@@ -266,9 +264,9 @@ class ReminderWorker(
         }
         ReminderScheduler.ensureChannel(applicationContext)
         val text = if (kind == ReminderScheduler.KIND_MORNING) {
-            "Đừng quên bấm vào office"
+            "Đừng quên bấm vào làm"
         } else {
-            "Đừng quên bấm ra office"
+            "Đừng quên bấm ra ngoài"
         }
         val intent = PendingIntent.getActivity(
             applicationContext, 0,
@@ -277,7 +275,7 @@ class ReminderWorker(
         )
         val notification = NotificationCompat.Builder(applicationContext, ReminderScheduler.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Time Tracker")
+            .setContentTitle("Chấm công")
             .setContentText(text)
             .setContentIntent(intent)
             .setAutoCancel(true)

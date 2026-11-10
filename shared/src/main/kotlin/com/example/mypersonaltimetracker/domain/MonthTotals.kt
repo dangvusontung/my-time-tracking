@@ -10,6 +10,7 @@ data class MonthTotal(
     val daysWithData: Int,
     /** Trung bình tổng giờ mỗi ngày có dữ liệu. */
     val avgPerDayMinutes: Int,
+    val avgSpanMinutes: Int? = null,
 )
 
 /**
@@ -22,18 +23,20 @@ object MonthTotalsCalculator {
      * @param daySummaries DaySummary theo ngày (đã qua DaySummaryCalculator)
      * @param maxMonths số tháng gần nhất (có dữ liệu) được trả về, mới nhất trước
      */
-    fun aggregate(daySummaries: Map<LocalDate, DaySummary>, maxMonths: Int): List<MonthTotal> =
+    fun aggregate(daySummaries: Map<LocalDate, DaySummary>, maxMonths: Int, attendance: Map<LocalDate, AttendanceSpan> = emptyMap()): List<MonthTotal> =
         daySummaries
             .filterValues { it.totalMinutes > 0 }
             .entries
-            .groupBy({ YearMonth.from(it.key) }, { it.value })
+            .groupBy { YearMonth.from(it.key) }
             .map { (yearMonth, summaries) ->
-                val total = summaries.sumOf { it.totalMinutes }
+                val total = summaries.sumOf { it.value.totalMinutes }
+                val spans = summaries.mapNotNull { attendance[it.key]?.minutes }
                 MonthTotal(
                     yearMonth = yearMonth,
                     totalMinutes = total,
                     daysWithData = summaries.size,
                     avgPerDayMinutes = total / summaries.size,
+                    avgSpanMinutes = spans.takeIf { it.isNotEmpty() }?.let { it.sum() / it.size },
                 )
             }
             .sortedByDescending { it.yearMonth }

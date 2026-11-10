@@ -62,36 +62,13 @@ fun WeekScreen(viewModel: WeekViewModel, onShowHistory: () -> Unit = {}) {
 
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val ratio = if (progress.targetMinutes <= 0) 0f
-                else (progress.weekTotalMinutes.toFloat() / progress.targetMinutes)
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        formatMinutes(progress.weekTotalMinutes),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        " / ${formatMinutes(progress.targetMinutes)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (progress.hasCustomTarget) {
-                        AssistChip(onClick = { showTargetDialog = true }, label = { Text("Mục tiêu tuỳ chỉnh") })
-                    }
+                com.example.mypersonaltimetracker.ui.common.GoalRing(progress.weekTotalMinutes, progress.targetMinutes, "Tiến độ tuần")
+                state.fridayLeaveAt?.let { leave ->
+                    Text("Dự kiến về đủ 40h: ${com.example.mypersonaltimetracker.ui.common.formatTime(leave, java.time.ZoneId.systemDefault())}",
+                        style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Thứ Sáu sớm nhất 16:30 · nếu tiếp tục ở văn phòng", style = MaterialTheme.typography.bodySmall)
                 }
-                LinearProgressIndicator(
-                    progress = { ratio.coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(8.dp),
-                    color = if (ratio >= 1f) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    strokeCap = StrokeCap.Round,
-                )
-                Text(
-                    "${(ratio * 100).toInt()}% của mục tiêu tuần",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (progress.hasCustomTarget) AssistChip(onClick = { showTargetDialog = true }, label = { Text("Mục tiêu tuỳ chỉnh") })
                 val jungleAvgMet = state.avgPerDayMinutes >= JUNGLE_LAW_DAILY_MINUTES
                 Text(
                     "Luật rừng 8h30/ngày: ${state.jungleLawDays} ngày đạt" +
@@ -113,17 +90,23 @@ fun WeekScreen(viewModel: WeekViewModel, onShowHistory: () -> Unit = {}) {
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Giờ từng ngày trong tuần", style = MaterialTheme.typography.titleSmall)
-                WeekChart(
-                    dayTotals = state.dayTotals,
-                    perDayTargetMinutes = state.perDayTargetMinutes,
-                )
+                com.example.mypersonaltimetracker.ui.common.TimelineLegend()
+                val (axisStart, axisEnd) = com.example.mypersonaltimetracker.ui.common.timelineBounds(state.timelines.flatten())
+                state.timelines.forEachIndexed { index, segments ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(formatDate(state.weekStart.plusDays(index.toLong())), style = MaterialTheme.typography.labelMedium)
+                        Text(formatMinutes(state.dayTotals[index]), style = MaterialTheme.typography.labelMedium)
+                    }
+                    com.example.mypersonaltimetracker.ui.common.TimelineLine(segments, axisStart, axisEnd, labels = index == 6)
+                }
             }
         }
 
         Card {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SummaryStatRow(Icons.Default.Schedule, "Giờ ở office", formatMinutes(progress.officeMinutes))
-                SummaryStatRow(Icons.Default.LunchDining, "Trừ nghỉ trưa", formatMinutes(progress.lunchAdjustmentMinutes))
+                SummaryStatRow(Icons.Default.Schedule, "Giờ tại văn phòng", formatMinutes(progress.officeMinutes))
+                SummaryStatRow(Icons.Default.LunchDining, "Nghỉ trưa quá giờ",
+                    if (state.lunchOverrunDays == 0) "Không có" else "${state.lunchOverrunDays} ngày · ${formatMinutes(state.lunchOverrunMinutes)}")
                 SummaryStatRow(Icons.Default.BeachAccess, "Cộng loại ngày (phép/lễ/WFH)", "+${formatMinutes(progress.exceptionCreditMinutes)}")
                 SummaryStatRow(Icons.Default.Functions, "Tổng tuần", formatMinutes(progress.weekTotalMinutes), emphasized = true)
                 SummaryStatRow(Icons.Default.Flag, "Mục tiêu", formatMinutes(progress.targetMinutes))

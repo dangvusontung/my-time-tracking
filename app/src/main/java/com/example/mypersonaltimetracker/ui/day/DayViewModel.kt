@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import com.example.mypersonaltimetracker.domain.LunchBreakStatus
 
 fun nowTicker(): kotlinx.coroutines.flow.Flow<Instant> = flow {
     while (true) {
@@ -59,6 +60,12 @@ data class DayUiState(
     val dailyTargetMinutes: Int? = null,
     /** Giờ về sớm nhất (đủ "luật rừng" 8h30) — chỉ cho hôm nay, null nếu không có phiên đang chạy. */
     val earliestLeaveAt: Instant? = null,
+    val fridayLeaveAt: Instant? = null,
+    val attendance: com.example.mypersonaltimetracker.domain.AttendanceSpan? = null,
+    val monthAverageMinutes: Int = 0,
+    val monthDays: Int = 0,
+    val lunchBreak: LunchBreakStatus = LunchBreakStatus(),
+    val timeline: List<com.example.mypersonaltimetracker.domain.OfficeSegment> = emptyList(),
 ) {
     val isRunning: Boolean get() = runningSession != null
     val overTenHours: Boolean get() = summary.totalMinutes > 600
@@ -117,7 +124,6 @@ class DayViewModel(
             date, now,
             settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
             zone,
-            settings.workdayCountStartMin, settings.workdayCountEndMin,
         )
 
         val earliestLeave = if (date == today) {
@@ -125,11 +131,21 @@ class DayViewModel(
                 spans, exception?.type, date, now,
                 settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
                 zone,
-                settings.workdayCountStartMin, settings.workdayCountEndMin,
             )
         } else {
             null
         }
+
+        val fridayLeave = if (date == today && date.dayOfWeek == java.time.DayOfWeek.FRIDAY) {
+            val monday = date.with(java.time.DayOfWeek.MONDAY)
+            val prior = (0..3).sumOf { offset ->
+                val d = monday.plusDays(offset.toLong())
+                DaySummaryCalculator.compute(spans, exceptions.firstOrNull { it.date == d.toString() }?.type,
+                    d, now, settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes, zone).totalMinutes
+            }
+            com.example.mypersonaltimetracker.domain.FridayLeaveCalculator.compute(spans, exception?.type, date, now, prior,
+                settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes, zone)
+        } else null
 
         val stale = if (date == today) {
             sessions.filter { it.outAt == null && Instant.ofEpochMilli(it.inAt).atZone(zone).toLocalDate() < today }
@@ -137,6 +153,12 @@ class DayViewModel(
         } else {
             emptyList()
         }
+
+        val monthDates = (spans.map { it.inAt.atZone(zone).toLocalDate() } + exceptions.map { LocalDate.parse(it.date) })
+            .toSet().filter { it <= today && java.time.YearMonth.from(it) == java.time.YearMonth.from(date) }
+        val monthTotals = monthDates.map { d -> DaySummaryCalculator.compute(spans,
+            exceptions.firstOrNull { it.date == d.toString() }?.type, d, now, settings.lunchWindowStartMin,
+            settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes, zone).totalMinutes }.filter { it > 0 }
 
         DayUiState(
             date = date,
@@ -151,6 +173,13 @@ class DayViewModel(
             staleSessions = stale,
             dailyTargetMinutes = dailyTarget,
             earliestLeaveAt = earliestLeave,
+            fridayLeaveAt = fridayLeave,
+            attendance = com.example.mypersonaltimetracker.domain.AttendanceSpan.compute(spans, date, now, zone),
+            monthAverageMinutes = if (monthTotals.isEmpty()) 0 else monthTotals.sum() / monthTotals.size,
+            monthDays = monthTotals.size,
+            timeline = com.example.mypersonaltimetracker.domain.officeTimeline(sessions.map { com.example.mypersonaltimetracker.companion.WatchSession(it.inAt, it.outAt) }, date, now, zone, settings.lunchWindowStartMin, settings.lunchWindowEndMin),
+            lunchBreak = LunchBreakStatus.compute(spans, date, now, zone,
+                settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DayUiState(date = date, isToday = true))
 

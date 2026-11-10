@@ -10,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
@@ -17,6 +19,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -45,6 +50,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.mypersonaltimetracker.reminder.ReminderScheduler
 import com.example.mypersonaltimetracker.ui.common.appViewModel
+import com.example.mypersonaltimetracker.ui.GlobalTrackingViewModel
 import com.example.mypersonaltimetracker.ui.day.DayContent
 import com.example.mypersonaltimetracker.ui.day.DayViewModel
 import com.example.mypersonaltimetracker.ui.history.HistoryScreen
@@ -115,12 +121,18 @@ fun AppRoot() {
         currentRoute == "months" -> "Theo tháng"
         currentRoute?.startsWith("day/") == true ->
             backStackEntry?.arguments?.getString("date") ?: "Chi tiết ngày"
-        else -> "Time Tracker"
+        else -> "Chấm công"
     }
     val showBack = currentRoute == "settings" || currentRoute == "weekHistory" ||
         currentRoute == "months" || currentRoute?.startsWith("day/") == true
     val showBottomBar = currentRoute in tabs.map { it.route }
     val snackbarHostState = remember { SnackbarHostState() }
+    val tracker: GlobalTrackingViewModel = appViewModel { GlobalTrackingViewModel(app) }
+    val tracking by tracker.state.collectAsStateWithLifecycle()
+    val trackingBusy by tracker.busy.collectAsStateWithLifecycle()
+    LaunchedEffect(tracker) {
+        tracker.messages.collect { snackbarHostState.showSnackbar(it) }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -138,6 +150,19 @@ fun AppRoot() {
                     }
                 },
                 actions = {
+                    FilledTonalButton(
+                        onClick = tracker::track,
+                        enabled = tracking.loaded && !trackingBusy,
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = if (tracking.inOffice) MaterialTheme.colorScheme.errorContainer
+                                else MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = if (tracking.inOffice) MaterialTheme.colorScheme.onErrorContainer
+                                else MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    ) {
+                        Text(if (trackingBusy) "Đang lưu…" else if (tracking.inOffice) "Ra ngoài" else "Vào làm")
+                    }
                     if (currentRoute != "settings") {
                         IconButton(onClick = { navController.navigate("settings") }) {
                             Icon(Icons.Default.Settings, contentDescription = "Cài đặt")

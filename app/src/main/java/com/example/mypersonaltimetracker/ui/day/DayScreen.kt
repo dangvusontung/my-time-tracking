@@ -32,7 +32,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -140,8 +139,31 @@ fun DayContent(
                         if (state.isToday) "Tổng hôm nay" else formatDateLongVi(state.date),
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    SummaryStatRow(Icons.Default.Schedule, "Giờ ở office", formatMinutes(state.summary.officeMinutes))
-                    SummaryStatRow(Icons.Default.LunchDining, "Trừ nghỉ trưa", formatMinutes(state.summary.lunchAdjustmentMinutes))
+                    if (!state.isToday) {
+                        com.example.mypersonaltimetracker.ui.common.GoalRing(state.summary.totalMinutes, state.dailyTargetMinutes ?: 0, "Tiến độ ngày")
+                    }
+                    com.example.mypersonaltimetracker.ui.common.TimelineLegend()
+                    val (axisStart, axisEnd) = com.example.mypersonaltimetracker.ui.common.timelineBounds(state.timeline)
+                    com.example.mypersonaltimetracker.ui.common.TimelineLine(state.timeline, axisStart, axisEnd, labels = true)
+                    state.attendance?.let { span ->
+                        SummaryStatRow(Icons.Default.Schedule, if (span.running) "Vào đầu → hiện tại" else "Vào đầu → ra cuối", formatMinutes(span.minutes))
+                        Text("${formatTime(span.firstIn, zone)} → ${formatTime(span.end, zone)} · gồm nghỉ trưa và ra ngoài", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text("TB tháng ${state.date.monthValue}: ${formatMinutes(state.monthAverageMinutes)}/ngày · ${state.monthDays} ngày có giờ",
+                        style = MaterialTheme.typography.bodyMedium)
+                    SummaryStatRow(Icons.Default.Schedule, "Tại văn phòng từ 07:30", formatMinutes(state.summary.officeMinutes))
+                    SummaryStatRow(Icons.Default.LunchDining, "Nghỉ trưa", when {
+                        state.lunchBreak.recordedMinutes == null -> "Theo mức ${formatMinutes(state.lunchBreak.allowedMinutes)}"
+                        state.lunchBreak.extraMinutes > 0 -> "${formatMinutes(state.lunchBreak.recordedMinutes!!)} · quá giờ"
+                        else -> "Trong mức ${formatMinutes(state.lunchBreak.allowedMinutes)}"
+                    })
+                    if (state.lunchBreak.extraMinutes > 0) {
+                        Text(
+                            "Nghỉ trưa quá ${formatMinutes(state.lunchBreak.extraMinutes)} — cần làm bù tương ứng.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     state.exception?.let {
                         SummaryStatRow(Icons.Default.BeachAccess, it.type.labelVi(), "+${formatMinutes(state.summary.exceptionCreditMinutes)}")
                     }
@@ -351,9 +373,19 @@ private fun HeroCard(state: DayUiState, zone: ZoneId, onToggle: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (state.isToday) {
+                com.example.mypersonaltimetracker.ui.common.GoalRing(
+                    state.summary.totalMinutes, state.dailyTargetMinutes ?: 0, "Tiến độ hôm nay",
+                )
+            }
+            state.fridayLeaveAt?.let { leave ->
+                Text("Dự kiến về đủ 40h tuần: ${formatTime(leave, zone)}",
+                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Sớm nhất 16:30 · nếu tiếp tục ở văn phòng", style = MaterialTheme.typography.bodySmall)
+            }
             if (running != null) {
                 Text(
-                    "Đang trong office",
+                    "Đang ở văn phòng",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -380,41 +412,13 @@ private fun HeroCard(state: DayUiState, zone: ZoneId, onToggle: () -> Unit) {
                     fontWeight = FontWeight.Bold,
                 )
             }
-            // Tiến độ so với mục tiêu ngày (8h30 mặc định).
-            val target = state.dailyTargetMinutes
-            if (state.isToday && target != null && target > 0) {
-                val ratio = state.summary.totalMinutes.toFloat() / target
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    LinearProgressIndicator(
-                        progress = { ratio.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(8.dp),
-                        color = if (ratio >= 1f) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        strokeCap = StrokeCap.Round,
-                    )
-                    Text(
-                        "Mục tiêu ngày: ${formatMinutes(state.summary.totalMinutes)} / ${formatMinutes(target)} (${(ratio * 100).toInt()}%)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (running != null) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             // Chỉ số phụ: "luật rừng" 8h30/ngày.
             if (state.isToday) {
                 val total = state.summary.totalMinutes
                 val met = total >= JUNGLE_LAW_DAILY_MINUTES
-                val jungleRatio = total.toFloat() / JUNGLE_LAW_DAILY_MINUTES
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    LinearProgressIndicator(
-                        progress = { jungleRatio.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(6.dp),
-                        color = MaterialTheme.colorScheme.tertiary,
-                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        strokeCap = StrokeCap.Round,
-                    )
                     Text(
-                        "Luật rừng 8h30: ${formatMinutes(total)} / 8h30 (${(jungleRatio * 100).toInt()}%)",
+                        "Luật rừng: ${formatMinutes(total)} / 8h30",
                         style = MaterialTheme.typography.bodySmall,
                         color = when {
                             met -> MaterialTheme.colorScheme.tertiary
@@ -461,7 +465,7 @@ private fun HeroCard(state: DayUiState, zone: ZoneId, onToggle: () -> Unit) {
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        if (running != null) "Ra office" else "Vào office",
+                        if (running != null) "Ra ngoài" else "Vào làm",
                         style = MaterialTheme.typography.titleMedium,
                     )
                 }

@@ -67,7 +67,7 @@ import com.example.mypersonaltimetracker.ui.common.minuteOfDayToTime
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 
-private enum class TimeField { MORNING, EVENING, LUNCH_START, LUNCH_END, COUNT_START, COUNT_END }
+private enum class TimeField { MORNING, EVENING, LUNCH_START, LUNCH_END }
 private enum class NumberField { LUNCH_MAX_CREDIT, WEEKLY_TARGET }
 
 private fun formatDays(days: Double): String =
@@ -145,7 +145,7 @@ fun SettingsScreen(
                         modifier = Modifier.size(22.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                    Text("Nhắc vào/ra office hằng ngày", Modifier.weight(1f))
+                    Text("Nhắc vào làm / ra ngoài hằng ngày", Modifier.weight(1f))
                     Switch(
                         checked = settings.remindersEnabled,
                         onCheckedChange = { if (it) ensureNotifPermissionThenEnable() else viewModel.setRemindersEnabled(false) },
@@ -157,18 +157,6 @@ fun SettingsScreen(
                 }
                 SettingRow(Icons.Default.Nightlight, "Giờ nhắc buổi chiều", minuteOfDayToTime(settings.eveningReminderMin)) {
                     timeField = TimeField.EVENING
-                }
-            }
-        }
-
-        SectionHeader("Khung giờ công nhận")
-        Card {
-            Column(Modifier.padding(vertical = 8.dp)) {
-                SettingRow(Icons.Default.Schedule, "Giờ vào sớm nhất được tính", minuteOfDayToTime(settings.workdayCountStartMin)) {
-                    timeField = TimeField.COUNT_START
-                }
-                SettingRow(Icons.Default.Schedule, "Giờ ra muộn nhất được tính", minuteOfDayToTime(settings.workdayCountEndMin)) {
-                    timeField = TimeField.COUNT_END
                 }
             }
         }
@@ -228,7 +216,7 @@ fun SettingsScreen(
                     csvLauncher.launch("time_tracker_export.csv")
                 }
                 HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                SettingRow(Icons.Default.Backup, "Sao lưu dữ liệu", "File JSON") {
+                SettingRow(Icons.Default.Backup, "Sao lưu dữ liệu", "Tệp JSON") {
                     backupLauncher.launch("time_tracker_backup.json")
                 }
                 SettingRow(Icons.Default.Share, "Chia sẻ bản sao lưu", "Gửi sang máy khác") {
@@ -245,7 +233,7 @@ fun SettingsScreen(
                         }
                     }
                 }
-                SettingRow(Icons.Default.Restore, "Khôi phục dữ liệu", "Từ file JSON") {
+                SettingRow(Icons.Default.Restore, "Khôi phục dữ liệu", "Từ tệp JSON") {
                     restoreLauncher.launch(arrayOf("application/json"))
                 }
             }
@@ -274,12 +262,6 @@ fun SettingsScreen(
             })
             TimeField.LUNCH_END -> Pair(settings.lunchWindowEndMin, { v: Int ->
                 viewModel.setLunchWindow(settings.lunchWindowStartMin, v)
-            })
-            TimeField.COUNT_START -> Pair(settings.workdayCountStartMin, { v: Int ->
-                viewModel.setWorkdayCountWindow(v, settings.workdayCountEndMin)
-            })
-            TimeField.COUNT_END -> Pair(settings.workdayCountEndMin, { v: Int ->
-                viewModel.setWorkdayCountWindow(settings.workdayCountStartMin, v)
             })
         }
         val (initial, onPick) = config

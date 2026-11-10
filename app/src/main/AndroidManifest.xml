@@ -17,6 +17,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyPersonalTimeTracker">
 
+        <service android:name=".companion.PhoneWatchListener" android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/tracker/v1/queue/" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:path="/tracker/v1/request" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

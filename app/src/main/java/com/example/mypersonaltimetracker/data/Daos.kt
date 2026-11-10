@@ -9,6 +9,15 @@ import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
+interface WatchReceiptDao {
+    @Query("SELECT * FROM watch_receipts WHERE id = :id")
+    suspend fun get(id: String): WatchReceiptEntity?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(receipt: WatchReceiptEntity)
+}
+
+@Dao
 interface SessionDao {
     @Query("SELECT * FROM sessions ORDER BY inAt DESC")
     fun observeAll(): Flow<List<SessionEntity>>

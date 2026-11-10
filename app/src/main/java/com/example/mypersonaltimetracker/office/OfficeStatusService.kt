@@ -33,7 +33,7 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * Shows an ongoing "Đang trong office" notification while a session is open.
+ * Shows an ongoing "Đang ở văn phòng" notification while a session is open.
  * The service observes the open-session flow and stops itself once no open
  * session remains, so callers only ever need to [sync] (start) it.
  */
@@ -108,12 +108,12 @@ class OfficeStatusService : Service() {
         val since = formatTime(Instant.ofEpochMilli(inAtMillis), ZoneId.systemDefault())
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Đang trong office")
+            .setContentTitle("Đang ở văn phòng")
             .setContentText("Từ $since")
             .setOngoing(true)
             .setSilent(true)
             .setContentIntent(contentIntent)
-            .addAction(0, "Ra office", clockOutIntent)
+            .addAction(0, "Ra ngoài", clockOutIntent)
             .build()
     }
 
@@ -122,7 +122,7 @@ class OfficeStatusService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Trạng thái trong office", NotificationManager.IMPORTANCE_LOW),
+                NotificationChannel(CHANNEL_ID, "Trạng thái trong văn phòng", NotificationManager.IMPORTANCE_LOW),
             )
         }
     }

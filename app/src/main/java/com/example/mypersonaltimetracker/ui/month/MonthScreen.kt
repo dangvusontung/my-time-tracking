@@ -66,14 +66,11 @@ private fun MonthRow(month: MonthTotal) {
             NumberBadge("T${month.yearMonth.monthValue}")
             Column(Modifier.weight(1f)) {
                 Text("Tháng ${month.yearMonth.monthValue}/${month.yearMonth.year}", style = MaterialTheme.typography.bodyLarge)
-                val jungleMet = month.avgPerDayMinutes >= JUNGLE_LAW_DAILY_MINUTES
-                Text(
-                    "${month.daysWithData} ngày có dữ liệu · TB ${formatMinutes(month.avgPerDayMinutes)}/ngày" +
-                        " · ${if (jungleMet) "đạt luật rừng" else "chưa đạt luật rừng"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (jungleMet) MaterialTheme.colorScheme.tertiary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text("Trung bình ${formatMinutes(month.avgPerDayMinutes)}/ngày", style = MaterialTheme.typography.titleMedium)
+                month.avgSpanMinutes?.let { Text("TB vào đầu → ra cuối: ${formatMinutes(it)}/ngày", style = MaterialTheme.typography.bodySmall) }
+                Text("${month.daysWithData} ngày có giờ được tính", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
             }
             Text(formatMinutes(month.totalMinutes), style = MaterialTheme.typography.titleMedium)
         }

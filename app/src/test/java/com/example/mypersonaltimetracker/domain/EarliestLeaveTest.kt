@@ -74,36 +74,21 @@ class EarliestLeaveTest {
         assertEquals(at("18:30"), earliest(sessions, DayType.HALF_DAY_LEAVE, now = at("14:00")))
     }
 
-    private fun earliestClamped(
-        sessions: List<SessionSpan>,
-        exception: DayType? = null,
-        now: Instant,
-    ) = EarliestLeaveCalculator.compute(
-        sessions, exception, day, now,
-        lunchStartMin = 690, lunchEndMin = 840, lunchMaxDeductMin = 60, zone = zone,
-        countFromMin = 450, countUntilMin = 990, // 7:30-16:30
-    )
-
     @Test
-    fun `check-in before the window counts from 7h30`() {
-        // In at 07:00, window starts 7:30. With lunch -60, max total by 16:30 is
-        // 540 - 60 = 480 < 510 -> unreachable -> null.
+    fun `early arrival counts from 7h30`() {
         val sessions = listOf(span(1, "07:00", null))
-        assertNull(earliestClamped(sessions, now = at("08:00")))
+        assertEquals(at("17:00"), earliest(sessions, now = at("08:00")))
     }
 
     @Test
-    fun `leave time is capped by the window end`() {
-        // Same day but lunch is only -30 worth... instead: half-day leave 240 +
-        // session 7:30 running, lunch -60: 240 + (t-7:30) - 60 = 510 -> t = 13:00.
-        val sessions = listOf(span(1, "07:30", null))
-        assertEquals(at("13:00"), earliestClamped(sessions, DayType.HALF_DAY_LEAVE, now = at("08:00")))
-    }
-
-    @Test
-    fun `unreachable within the window returns null`() {
-        // In at 10:00 continuous: by 16:30 only 390 office - 60 lunch = 330 < 510.
+    fun `late arrival can reach the law after 16h30`() {
         val sessions = listOf(span(1, "10:00", null))
-        assertNull(earliestClamped(sessions, now = at("11:00")))
+        assertEquals(at("19:30"), earliest(sessions, now = at("11:00")))
+    }
+
+    @Test
+    fun `partial lunch while afternoon is running does not double deduct`() {
+        val sessions = listOf(span(1, "08:00", "12:00"), span(2, "12:30", null))
+        assertEquals(at("17:30"), earliest(sessions, now = at("14:00")))
     }
 }

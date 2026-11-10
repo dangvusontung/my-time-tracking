@@ -64,13 +64,6 @@ class SettingsViewModel(private val app: App) : ViewModel() {
         viewModelScope.launch { settingsRepo.setLunchMaxCreditMinutes(value) }
     }
 
-    fun setWorkdayCountWindow(startMin: Int, endMin: Int) {
-        viewModelScope.launch {
-            settingsRepo.setWorkdayCountWindow(startMin, endMin)
-            reschedule()
-        }
-    }
-
     fun setDefaultWeeklyTargetMinutes(value: Int) {
         viewModelScope.launch { settingsRepo.setDefaultWeeklyTargetMinutes(value) }
     }

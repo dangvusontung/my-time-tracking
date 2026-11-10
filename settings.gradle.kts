@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "MyPersonalTimeTracker"
 include(":app")
- 
+include(":shared", ":wear")
+

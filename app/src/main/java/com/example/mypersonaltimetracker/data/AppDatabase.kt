@@ -20,12 +20,14 @@ class Converters {
         DayExceptionEntity::class,
         WeekTargetEntity::class,
         DayNoteEntity::class,
+        WatchReceiptEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun watchReceiptDao(): WatchReceiptDao
     abstract fun sessionDao(): SessionDao
     abstract fun dayExceptionDao(): DayExceptionDao
     abstract fun weekTargetDao(): WeekTargetDao

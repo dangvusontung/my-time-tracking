@@ -61,7 +61,7 @@ fun HistoryScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = onShowMonths) {
-                Text("Xem theo tháng")
+                Text("Tổng & trung bình tháng")
             }
             Spacer(Modifier.weight(1f))
             IconButton(onClick = { calendarMode = !calendarMode }) {

@@ -53,7 +53,6 @@ class HistoryViewModel(app: App) : ViewModel() {
                     spans, exceptionByDate[d], d, now,
                     settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
                     zone,
-                    settings.workdayCountStartMin, settings.workdayCountEndMin,
                 )
                 HistoryRow(d, summary.totalMinutes, exceptionByDate[d], hasNote = d in noteDates)
             },

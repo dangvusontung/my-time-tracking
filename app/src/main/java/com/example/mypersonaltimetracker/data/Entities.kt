@@ -5,6 +5,9 @@ import androidx.room.PrimaryKey
 import com.example.mypersonaltimetracker.domain.DayType
 import java.time.LocalDate
 
+@Entity(tableName = "watch_receipts")
+data class WatchReceiptEntity(@PrimaryKey val id: String, val error: String?)
+
 @Entity(tableName = "sessions")
 data class SessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

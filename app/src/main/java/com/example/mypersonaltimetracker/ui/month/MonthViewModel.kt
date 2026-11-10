@@ -39,14 +39,15 @@ class MonthViewModel(app: App) : ViewModel() {
         val dates = sessions.map { Instant.ofEpochMilli(it.inAt).atZone(zone).toLocalDate() }.toSet() +
             exceptionByDate.keys
 
-        val summaries = dates.associateWith { d ->
+        val summaries = dates.filter { it <= now.atZone(zone).toLocalDate() }.associateWith { d ->
             DaySummaryCalculator.compute(
                 spans, exceptionByDate[d], d, now,
                 settings.lunchWindowStartMin, settings.lunchWindowEndMin, settings.lunchMaxCreditMinutes,
                 zone,
-                settings.workdayCountStartMin, settings.workdayCountEndMin,
             )
         }
-        MonthUiState(months = MonthTotalsCalculator.aggregate(summaries, MAX_MONTHS))
+        MonthUiState(months = MonthTotalsCalculator.aggregate(summaries, MAX_MONTHS, summaries.keys.mapNotNull { d ->
+            com.example.mypersonaltimetracker.domain.AttendanceSpan.compute(spans, d, now, zone)?.let { d to it }
+        }.toMap()))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MonthUiState())
 }

@@ -2,7 +2,6 @@ package com.example.mypersonaltimetracker.domain
 
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneId
 
 /** Leave / exception types credited to a day. Kept distinct even where credits are equal
@@ -29,8 +28,7 @@ object DaySummaryCalculator {
     /**
      * officeMinutes = sum of (in -> out) of the day's sessions; a running session counts
      * up to [now] for display. Overnight sessions belong to the local date of inAt.
-     * Only time inside [countFromMin, countUntilMin) (minutes of day, company counting
-     * window, e.g. 7:30–16:30) is counted; defaults count the whole day.
+     * Time starts counting at 07:30; there is no evening cutoff. Gaps are excluded.
      * lunchAdjustmentMinutes deducts the (standard or actual) lunch break — see
      * [LunchAdjustment].
      */
@@ -43,23 +41,16 @@ object DaySummaryCalculator {
         lunchEndMin: Int,
         lunchMaxDeductMin: Int,
         zone: ZoneId,
-        countFromMin: Int = 0,
-        countUntilMin: Int = 24 * 60,
     ): DaySummary {
-        val windowStart = day.atTime(LocalTime.ofSecondOfDay(countFromMin * 60L)).atZone(zone).toInstant()
-        val windowEnd = if (countUntilMin >= 24 * 60) {
-            day.plusDays(1).atStartOfDay(zone).toInstant()
-        } else {
-            day.atTime(LocalTime.ofSecondOfDay(countUntilMin * 60L)).atZone(zone).toInstant()
-        }
         val daySessions = sessions.filter { it.inAt.atZone(zone).toLocalDate() == day }
+        val countFrom = day.atTime(7, 30).atZone(zone).toInstant()
         val officeSeconds = daySessions.sumOf { s ->
-            val start = maxOf(s.inAt, windowStart)
-            val end = minOf(s.endFor(now), windowEnd)
+            val end = s.endFor(now)
+            val start = maxOf(s.inAt, countFrom)
             if (end.isAfter(start)) end.epochSecond - start.epochSecond else 0L
         }
         val officeMinutes = (officeSeconds / 60).toInt()
-        val lunch = LunchAdjustment.compute(sessions, day, lunchStartMin, lunchEndMin, lunchMaxDeductMin, now, zone)
+        val lunch = LunchAdjustment.compute(sessions, day, lunchStartMin, lunchEndMin, lunchMaxDeductMin, now, zone, countFromMin = 450)
         return DaySummary(
             officeMinutes = officeMinutes,
             lunchAdjustmentMinutes = lunch,

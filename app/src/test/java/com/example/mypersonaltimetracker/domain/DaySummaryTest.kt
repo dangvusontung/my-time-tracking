@@ -85,26 +85,37 @@ class DaySummaryTest {
     }
 
     @Test
-    fun `time outside the counting window is not counted`() {
-        // 07:00 -> 17:30 with window 7:30-16:30: only 7:30-16:30 counts = 540.
+    fun `office starts at 7h30 with no evening cutoff`() {
         val s = DaySummaryCalculator.compute(
             listOf(span(1, "07:00", "17:30")), null, day, at("18:00"),
             lunchStartMin = 690, lunchEndMin = 840, lunchMaxDeductMin = 60, zone = zone,
-            countFromMin = 450, countUntilMin = 990,
         )
-        assertEquals(540, s.officeMinutes)
+        assertEquals(600, s.officeMinutes)
         assertEquals(-60, s.lunchAdjustmentMinutes) // continuous through the lunch window
-        assertEquals(480, s.totalMinutes)
+        assertEquals(540, s.totalMinutes)
     }
 
     @Test
-    fun `session fully before the window counts nothing`() {
+    fun `session entirely before 7h30 earns no time`() {
         val s = DaySummaryCalculator.compute(
             listOf(span(1, "05:00", "07:00")), null, day, at("18:00"),
             lunchStartMin = 690, lunchEndMin = 840, lunchMaxDeductMin = 60, zone = zone,
-            countFromMin = 450, countUntilMin = 990,
         )
         assertEquals(0, s.officeMinutes)
         assertEquals(0, s.totalMinutes)
+    }
+
+    @Test
+    fun `phone Thursday sessions retain evening work and exclude all outings`() {
+        val s = summary(listOf(
+            span(1, "08:37:18", "10:16:58"),
+            span(2, "10:30:36", "11:55:34"),
+            span(3, "12:36:20", "15:12:15"),
+            span(4, "15:20:07", "16:46:56"),
+            span(5, "16:59:49", "18:21:42"),
+        ), now = at("23:00"))
+        assertEquals(509, s.officeMinutes)
+        assertEquals(-20, s.lunchAdjustmentMinutes)
+        assertEquals(489, s.totalMinutes) // 8h09, rather than 6h30 with the old 16:30 cutoff.
     }
 }
